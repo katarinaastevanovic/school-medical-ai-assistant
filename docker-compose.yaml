@@ -1,0 +1,145 @@
+# frontend:
+#   build: ./frontend
+#   ports:
+#     - "5173:5173"
+#   depends_on:
+#     - auth-service
+#     - school-service
+
+services:
+
+  gateway-service:
+    build: ./backend/gateway-service
+    ports:
+      - "8080:8080"
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      AUTH_SERVICE_URL: http://auth-service:8081
+      SCHOOL_SERVICE_URL: http://school-service:8082
+      MEDICAL_SERVICE_URL: http://medical-service:8083
+      CHATBOT_SERVICE_URL: http://chatbot-service:8084
+    depends_on:
+      auth-service:
+        condition: service_started
+      school-service:
+        condition: service_started
+      medical-service:
+        condition: service_started
+      chatbot-service:
+        condition: service_started
+
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${AUTH_DB_NAME}
+    ports:
+      - "5433:5432"
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  school-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${SCHOOL_DB_NAME}
+    ports:
+      - "5434:5432"
+    volumes:
+      - school-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build: ./backend/auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      DATABASE_URL: host=auth-db user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} dbname=${AUTH_DB_NAME} port=5432 sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      auth-db:
+        condition: service_healthy
+
+  school-service:
+    build: ./backend/school-service
+    ports:
+      - "8082:8082"
+    environment:
+      DATABASE_URL: host=school-db user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} dbname=${SCHOOL_DB_NAME} port=5432 sslmode=disable
+    depends_on:
+      school-db:
+        condition: service_healthy
+
+  medical-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${MEDICAL_DB_NAME}
+    ports:
+      - "5435:5432"
+    volumes:
+      - medical-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  medical-service:
+    build: ./backend/medical-service
+    ports:
+      - "8083:8083"
+    environment:
+      DATABASE_URL: host=medical-db user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} dbname=${MEDICAL_DB_NAME} port=5432 sslmode=disable
+    depends_on:
+      medical-db:
+        condition: service_healthy
+
+  chatbot-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${CHATBOT_DB_NAME}
+    ports:
+      - "5436:5432"
+    volumes:
+      - chatbot-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  chatbot-service:
+    build: ./backend/chatbot-service
+    ports:
+      - "8084:8084"
+    environment:
+      DATABASE_URL: host=chatbot-db user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} dbname=${CHATBOT_DB_NAME} port=5432 sslmode=disable
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_API_URL: ${GROQ_API_URL}
+      GROQ_MODEL: ${GROQ_MODEL}
+      SCHOOL_SERVICE_URL: http://school-service:8082
+      MEDICAL_SERVICE_URL: http://medical-service:8083
+    depends_on:
+      chatbot-db:
+        condition: service_healthy
+
+volumes:
+  auth-db-data:
+  school-db-data:
+  medical-db-data:
+  chatbot-db-data:
